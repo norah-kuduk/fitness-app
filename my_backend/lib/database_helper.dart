@@ -28,4 +28,8 @@ class DatabaseHelper {
       await connection.execute(statement.trim());
     }
   }
+
+  Future<void> closeConnection() async {
+    await connection.close();
+  }
 }

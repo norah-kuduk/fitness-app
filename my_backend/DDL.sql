@@ -14,15 +14,13 @@ CREATE TABLE IF NOT EXISTS Equipment (
 CREATE TABLE IF NOT EXISTS Exercise (
   ExerciseID INT PRIMARY KEY,
   ExerciseName VARCHAR(255) NOT NULL,
-  Description TEXT,
-  EquipmentID INT,
-  FOREIGN KEY (EquipmentID) REFERENCES Equipment(EquipmentID)
+  Description TEXT
 );
 
 CREATE TABLE IF NOT EXISTS RoutineExercise (
-  RoutineExerciseID INT PRIMARY KEY,
   RoutineID INT,
   ExerciseID INT,
+  Sets INT,
   Reps INT,
   HoldTime INT,
   Notes TEXT,
