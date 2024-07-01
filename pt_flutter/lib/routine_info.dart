@@ -65,16 +65,30 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
   }
 
   Future<void> addExercisesToRoutine() async {
-    final response = await http.post(
-      Uri.parse('http://localhost:8080/routine/${widget.routineId}/exercise'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({'Exercises': _selectedExercises}),
-    );
+    // Assuming _existingExercises is a List<int> of existing exercise IDs in the routine
+    // and _selectedExercises is a List<Map<String, dynamic>> where each exercise has an 'id' key
 
-    if (response.statusCode == 200) {
-      fetchRoutineExercises();
+    // Filter out exercises that are already in the routine
+    List exercisesToAdd = _selectedExercises
+        .where((exercise) => !_routineExercises.contains(exercise['id']))
+        .toList();
+
+    // Proceed only if there are new exercises to add
+    if (exercisesToAdd.isNotEmpty) {
+      final response = await http.post(
+        Uri.parse('http://localhost:8080/routine/${widget.routineId}/exercise'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'Exercises': exercisesToAdd}),
+      );
+
+      if (response.statusCode == 200) {
+        fetchRoutineExercises();
+      } else {
+        throw Exception('Failed to add exercises to routine');
+      }
     } else {
-      throw Exception('Failed to add exercises to routine');
+      print('No new exercises to add');
+      // Optionally, handle the case when there are no new exercises to add
     }
   }
 
@@ -178,6 +192,16 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
     );
   }
 
+  void _onReorder(int oldIndex, int newIndex) {
+    setState(() {
+      if (newIndex > oldIndex) {
+        newIndex -= 1;
+      }
+      final String item = _exercises.removeAt(oldIndex);
+      _exercises.insert(newIndex, item);
+    });
+  }
+
   void _showEditExerciseDialog(Map<String, dynamic> exercise) {
     final TextEditingController setsController =
         TextEditingController(text: exercise['Sets'].toString());
@@ -253,7 +277,8 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
+            child: ReorderableListView.builder(
+              onReorder: _onReorder,
               itemCount: _routineExercises.length,
               itemBuilder: (context, index) {
                 final routineExercise = _routineExercises[index];
@@ -262,6 +287,7 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
                     orElse: () =>
                         {'ExerciseName': 'Unknown Exercise'})['ExerciseName'];
                 return ListTile(
+                  key: Key('$index'),
                   title: Text(exerciseName),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
