@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS RoutineExercise (
   Sets INT,
   Reps INT,
   HoldTime INT,
+  Ord INT,
   Notes TEXT,
   FOREIGN KEY (RoutineID) REFERENCES Routine(RoutineID),
   FOREIGN KEY (ExerciseID) REFERENCES Exercise(ExerciseID)

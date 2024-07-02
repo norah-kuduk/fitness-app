@@ -2,6 +2,8 @@
 // have capabilities to add, update, and delete exercises, reps, sets,
 // hold time, equipment, notes etc.
 
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -109,6 +111,27 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
     }
   }
 
+  // update server routine exercises with order
+  Future<void> updateExercisesOnServer() async {
+    final url = Uri.parse(
+        'http://localhost:8080/routine/${widget.routineId}/exercise/$exerciseId');
+    final response = await http.post(
+      url,
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode({
+        'exercises': _routineExercises,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      print('Server updated successfully.');
+    } else {
+      print('Failed to update server. Status code: ${response.statusCode}');
+    }
+  }
+
   Future<void> deleteRoutineExercise(int exerciseId) async {
     final response = await http.delete(
       Uri.parse(
@@ -148,12 +171,19 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
                         setState(() {
                           if (value == true) {
                             print('Adding exercise at index $index');
+                            int nextOrder = selectedExercises.isNotEmpty
+                                ? (selectedExercises
+                                        .map<int>((e) => e['Order'])
+                                        .reduce(max) +
+                                    1)
+                                : 0;
                             selectedExercises.add({
                               'ExerciseID': exercise['ExerciseID'],
                               'Sets': 3, // Default value, can be modified
                               'Reps': 10, // Default value, can be modified
                               'HoldTime': 30, // Default value, can be modified
-                              'Notes': '' // Default value, can be modified
+                              'Notes': '', // Default value, can be modified
+                              'Ord': nextOrder, // Assign the next order value
                             });
                             print(selectedExercises);
                           } else {
@@ -197,9 +227,51 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
       if (newIndex > oldIndex) {
         newIndex -= 1;
       }
-      final String item = _exercises.removeAt(oldIndex);
-      _exercises.insert(newIndex, item);
+      final Map<String, dynamic> item = _routineExercises.removeAt(oldIndex);
+      _routineExercises.insert(newIndex, item);
     });
+  }
+
+  void onReorder(int oldIndex, int newIndex) {
+    setState(() {
+      if (newIndex > oldIndex) {
+        newIndex -= 1;
+      }
+      final item = _routineExercises.removeAt(oldIndex);
+      _routineExercises.insert(newIndex, item);
+
+      // Update the order property for each exercise
+      for (int i = 0; i < _routineExercises.length; i++) {
+        _routineExercises[i]['Ord'] = i;
+      }
+
+      // Optionally, save the new order here, either locally or by sending to a backend
+      saveExerciseOrder();
+    });
+  }
+
+  void saveExerciseOrder() async {
+    // Assuming _routineExercises is a List<Map<String, dynamic>> of exercises
+    // with an 'ExerciseID' key and an 'Order' key
+
+    final List<Map<String, dynamic>> updatedExercises = _routineExercises
+        .map((exercise) => {
+              'ExerciseID': exercise['ExerciseID'],
+              'Ord': exercise['Ord'],
+            })
+        .toList();
+
+    final response = await http.put(
+      Uri.parse('http://localhost:8080/routine/${widget.routineId}/exercise'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(updatedExercises),
+    );
+
+    if (response.statusCode == 200) {
+      // Optionally, handle the case when the exercise order is saved successfully
+    } else {
+      throw Exception('Failed to save exercise order');
+    }
   }
 
   void _showEditExerciseDialog(Map<String, dynamic> exercise) {

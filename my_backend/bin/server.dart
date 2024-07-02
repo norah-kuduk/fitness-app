@@ -164,7 +164,8 @@ Future<void> main() async {
               'Sets': row[2],
               'Reps': row[3],
               'HoldTime': row[4],
-              'Notes': row[5]
+              'Notes': row[5],
+              'Ord': row[6]
             })
         .toList();
     return Response.ok(json.encode(routineExercises),
@@ -182,7 +183,7 @@ Future<void> main() async {
 
     for (final exercise in exercises) {
       await dbHelper.connection.query(
-        'INSERT INTO RoutineExercise (RoutineID, ExerciseID, Sets, Reps, HoldTime, Notes) VALUES (@routineID, @exerciseID, @sets, @reps, @holdTime, @notes)',
+        'INSERT INTO RoutineExercise (RoutineID, ExerciseID, Sets, Reps, HoldTime, Notes, Ord) VALUES (@routineID, @exerciseID, @sets, @reps, @holdTime, @notes, @ord)',
         substitutionValues: {
           'routineID': id,
           'exerciseID': exercise['ExerciseID'],
@@ -190,6 +191,7 @@ Future<void> main() async {
           'reps': exercise['Reps'],
           'holdTime': exercise['HoldTime'],
           'notes': exercise['Notes'],
+          'ord': exercise['Ord'],
         },
       );
     }
