@@ -113,22 +113,27 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
 
   // update server routine exercises with order
   Future<void> updateExercisesOnServer() async {
-    final url = Uri.parse(
-        'http://localhost:8080/routine/${widget.routineId}/exercise/$exerciseId');
-    final response = await http.post(
-      url,
-      headers: <String, String>{
-        'Content-Type': 'application/json; charset=UTF-8',
-      },
-      body: jsonEncode({
-        'exercises': _routineExercises,
-      }),
+    final response = await http.delete(
+      Uri.parse('http://localhost:8080/routine/${widget.routineId}/exercise/'),
     );
 
     if (response.statusCode == 200) {
-      print('Server updated successfully.');
+      final response = await http.post(
+        Uri.parse(
+            'http://localhost:8080/routine/${widget.routineId}/exercise/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'Exercises': _routineExercises,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        print('Server updated successfully.');
+      } else {
+        print('Failed to update server. Status code: ${response.statusCode}');
+      }
     } else {
-      print('Failed to update server. Status code: ${response.statusCode}');
+      print('Failed to delete exercises from routine');
     }
   }
 
@@ -173,7 +178,7 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
                             print('Adding exercise at index $index');
                             int nextOrder = selectedExercises.isNotEmpty
                                 ? (selectedExercises
-                                        .map<int>((e) => e['Order'])
+                                        .map<int>((e) => e['Ord'])
                                         .reduce(max) +
                                     1)
                                 : 0;
@@ -190,6 +195,10 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
                             print("Removing exercise at index $index");
                             selectedExercises.removeWhere((e) =>
                                 e['ExerciseID'] == exercise['ExerciseID']);
+                            int i = 0;
+                            selectedExercises.forEach((e) {
+                              e['Ord'] = i++;
+                            });
                           }
                         });
                       },
@@ -227,16 +236,6 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
       if (newIndex > oldIndex) {
         newIndex -= 1;
       }
-      final Map<String, dynamic> item = _routineExercises.removeAt(oldIndex);
-      _routineExercises.insert(newIndex, item);
-    });
-  }
-
-  void onReorder(int oldIndex, int newIndex) {
-    setState(() {
-      if (newIndex > oldIndex) {
-        newIndex -= 1;
-      }
       final item = _routineExercises.removeAt(oldIndex);
       _routineExercises.insert(newIndex, item);
 
@@ -251,26 +250,37 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
   }
 
   void saveExerciseOrder() async {
-    // Assuming _routineExercises is a List<Map<String, dynamic>> of exercises
-    // with an 'ExerciseID' key and an 'Order' key
-
+    // Debugging: Print the data being sent
+    print('Saving exercise order for routine ${widget.routineId}');
     final List<Map<String, dynamic>> updatedExercises = _routineExercises
         .map((exercise) => {
               'ExerciseID': exercise['ExerciseID'],
               'Ord': exercise['Ord'],
             })
         .toList();
+    print('Data being sent: ${json.encode(updatedExercises)}');
 
-    final response = await http.put(
-      Uri.parse('http://localhost:8080/routine/${widget.routineId}/exercise'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode(updatedExercises),
-    );
+    try {
+      final response = await http.put(
+        Uri.parse('http://localhost:8080/routine/${widget.routineId}/exercise'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(updatedExercises),
+      );
 
-    if (response.statusCode == 200) {
-      // Optionally, handle the case when the exercise order is saved successfully
-    } else {
-      throw Exception('Failed to save exercise order');
+      // Debugging: Print the response status code and body
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        print('Exercise order saved successfully');
+      } else {
+        // Improved error handling: Log the status code and response body
+        print(
+            'Failed to save exercise order. Status code: ${response.statusCode}, Response: ${response.body}');
+      }
+    } catch (e) {
+      // Handle network errors or exceptions
+      print('An error occurred while saving exercise order: $e');
     }
   }
 

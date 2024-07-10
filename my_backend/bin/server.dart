@@ -164,8 +164,8 @@ Future<void> main() async {
               'Sets': row[2],
               'Reps': row[3],
               'HoldTime': row[4],
-              'Notes': row[5],
-              'Ord': row[6]
+              'Ord': row[5],
+              'Notes': row[6]
             })
         .toList();
     return Response.ok(json.encode(routineExercises),
@@ -213,12 +213,37 @@ Future<void> main() async {
         'reps': payload['Reps'],
         'holdTime': payload['HoldTime'],
         'notes': payload['Notes'],
+        'ord': payload['Ord'], // added 'Ord' to the query
         'routineId': routineId,
         'exerciseId': exerciseId
       },
     );
 
     return Response.ok('Exercise updated in routine', headers: _headers);
+  });
+
+  //update exercises in a routine
+  router.put('/routine/<routineId>/exercise', (Request request) async {
+    final routineId = int.parse(request.params['routineId']!);
+    final payload = json.decode(await request.readAsString());
+    final exercises = payload['Exercises'] as List;
+
+    for (final exercise in exercises) {
+      await dbHelper.connection.query(
+        'UPDATE RoutineExercise SET Sets = @sets, Reps = @reps, HoldTime = @holdTime, Notes = @notes, Ord = @ord WHERE RoutineID = @routineId AND ExerciseID = @exerciseId',
+        substitutionValues: {
+          'sets': exercise['Sets'],
+          'reps': exercise['Reps'],
+          'holdTime': exercise['HoldTime'],
+          'notes': exercise['Notes'],
+          'ord': exercise['Ord'],
+          'routineId': routineId,
+          'exerciseId': exercise['ExerciseID']
+        },
+      );
+    }
+
+    return Response.ok('Exercises updated in routine', headers: _headers);
   });
 
   // Delete an exercise from a routine
@@ -233,6 +258,18 @@ Future<void> main() async {
     );
 
     return Response.ok('Exercise deleted from routine', headers: _headers);
+  });
+
+  // Delete all exercises from a routine
+  router.delete('/routine/<id>/exercise', (Request request) async {
+    final id = int.parse(request.params['id']!);
+
+    await dbHelper.connection.query(
+      'DELETE FROM RoutineExercise WHERE RoutineID = @id',
+      substitutionValues: {'id': id},
+    );
+
+    return Response.ok('All exercises deleted from routine', headers: _headers);
   });
 
   // sets up the middleware pipeline for logging requests and handling CORS,
