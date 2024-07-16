@@ -155,7 +155,7 @@ Future<void> main() async {
   router.get('/routine/<id>/exercise', (Request request) async {
     final id = int.parse(request.params['id']!);
     final result = await dbHelper.connection.query(
-        'SELECT * FROM RoutineExercise WHERE RoutineID = @id',
+        'SELECT * FROM RoutineExercise WHERE RoutineID = @id ORDER BY Ord ASC',
         substitutionValues: {'id': id});
     final routineExercises = result
         .map((row) => {
@@ -222,7 +222,7 @@ Future<void> main() async {
     return Response.ok('Exercise updated in routine', headers: _headers);
   });
 
-  //update exercises in a routine
+  // update exercises in a routine
   router.put('/routine/<routineId>/exercise', (Request request) async {
     final routineId = int.parse(request.params['routineId']!);
     final payload = json.decode(await request.readAsString());

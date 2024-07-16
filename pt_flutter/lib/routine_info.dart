@@ -2,8 +2,6 @@
 // have capabilities to add, update, and delete exercises, reps, sets,
 // hold time, equipment, notes etc.
 
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -23,14 +21,25 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
   List<dynamic> _exercises = [];
   List<dynamic> _routineExercises = [];
   List<Map<String, dynamic>> _selectedExercises = [];
+  List<dynamic> _filteredExercises = [];
+  TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
-    super.initState();
-    fetchExercises();
-    fetchRoutineExercises();
+    super.initState(); // initialize
+    fetchExercises(); // fetch exercises
+    fetchRoutineExercises(); // fetch routine exercises
+    _searchController
+        .addListener(_filterExercises); // listen to search controller
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // fetch exercises from server
   Future<void> fetchExercises() async {
     final response =
         await http.get(Uri.parse('http://localhost:8080/exercise'));
@@ -44,6 +53,7 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
     }
   }
 
+  // fetch routine exercises from server
   Future<void> fetchRoutineExercises() async {
     try {
       final response = await http.get(Uri.parse(
@@ -66,6 +76,7 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
     }
   }
 
+  // add exercises to routine
   Future<void> addExercisesToRoutine() async {
     // Assuming _existingExercises is a List<int> of existing exercise IDs in the routine
     // and _selectedExercises is a List<Map<String, dynamic>> where each exercise has an 'id' key
@@ -94,6 +105,7 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
     }
   }
 
+  // update routine exercise on server
   Future<void> updateRoutineExercise(
       int exerciseId, int sets, int reps, int holdTime, String notes) async {
     final response = await http.put(
@@ -111,16 +123,17 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
     }
   }
 
-  // update server routine exercises with order
+  // update all server routine exercises with order
   Future<void> updateExercisesOnServer() async {
-    final response = await http.delete(
-      Uri.parse('http://localhost:8080/routine/${widget.routineId}/exercise/'),
+    // first delete all current routine exercises
+    await http.delete(
+      Uri.parse('http://localhost:8080/routine/${widget.routineId}/exercise'),
     );
 
-    if (response.statusCode == 200) {
+    // then add all routine exercises in the new order
+    if (_routineExercises.isNotEmpty) {
       final response = await http.post(
-        Uri.parse(
-            'http://localhost:8080/routine/${widget.routineId}/exercise/'),
+        Uri.parse('http://localhost:8080/routine/${widget.routineId}/exercise'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'Exercises': _routineExercises,
@@ -133,10 +146,11 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
         print('Failed to update server. Status code: ${response.statusCode}');
       }
     } else {
-      print('Failed to delete exercises from routine');
+      print('No exercises to update on server.');
     }
   }
 
+  // delete a single exercise from a routine
   Future<void> deleteRoutineExercise(int exerciseId) async {
     final response = await http.delete(
       Uri.parse(
@@ -150,6 +164,18 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
     }
   }
 
+  // filter exercises given a search query
+  void _filterExercises() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredExercises = _exercises.where((exercise) {
+        final exerciseName = exercise['ExerciseName'].toLowerCase();
+        return exerciseName.contains(query);
+      }).toList();
+    });
+  }
+
+  // code for selecting exercises to add to routine
   void _showExerciseSelectionDialog() {
     List<Map<String, dynamic>> selectedExercises =
         List.from(_selectedExercises);
@@ -159,52 +185,65 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
+            _searchController.addListener(() {
+              setState(() {
+                _filteredExercises = _exercises.where((exercise) {
+                  final exerciseName = exercise['ExerciseName'].toLowerCase();
+                  return exerciseName
+                      .contains(_searchController.text.toLowerCase());
+                }).toList();
+              });
+            });
             return AlertDialog(
-              title: const Text('Select Exercises'),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: _exercises.length,
-                  itemBuilder: (context, index) {
-                    final exercise = _exercises[index];
-                    return CheckboxListTile(
-                      title: Text(exercise['ExerciseName']),
-                      value: selectedExercises.any(
-                          (e) => e['ExerciseID'] == exercise['ExerciseID']),
-                      onChanged: (bool? value) {
-                        setState(() {
-                          if (value == true) {
-                            print('Adding exercise at index $index');
-                            int nextOrder = selectedExercises.isNotEmpty
-                                ? (selectedExercises
-                                        .map<int>((e) => e['Ord'])
-                                        .reduce(max) +
-                                    1)
-                                : 0;
-                            selectedExercises.add({
-                              'ExerciseID': exercise['ExerciseID'],
-                              'Sets': 3, // Default value, can be modified
-                              'Reps': 10, // Default value, can be modified
-                              'HoldTime': 30, // Default value, can be modified
-                              'Notes': '', // Default value, can be modified
-                              'Ord': nextOrder, // Assign the next order value
-                            });
-                            print(selectedExercises);
-                          } else {
-                            print("Removing exercise at index $index");
-                            selectedExercises.removeWhere((e) =>
-                                e['ExerciseID'] == exercise['ExerciseID']);
-                            int i = 0;
-                            selectedExercises.forEach((e) {
-                              e['Ord'] = i++;
-                            });
-                          }
-                        });
-                      },
-                    );
-                  },
-                ),
+              title: Text('Select Exercises'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: _searchController,
+                    decoration: const InputDecoration(
+                      labelText: 'Search',
+                      suffixIcon: Icon(Icons.search),
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      width: double.maxFinite,
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _filteredExercises.length,
+                        itemBuilder: (context, index) {
+                          final exercise = _filteredExercises[index];
+                          return CheckboxListTile(
+                            title: Text(exercise['ExerciseName']),
+                            value: selectedExercises.any((e) =>
+                                e['ExerciseID'] == exercise['ExerciseID']),
+                            onChanged: (bool? value) {
+                              setState(() {
+                                if (value == true) {
+                                  selectedExercises.add({
+                                    'ExerciseID': exercise['ExerciseID'],
+                                    'Sets': 3, // Default value, can be modified
+                                    'Reps':
+                                        10, // Default value, can be modified
+                                    'HoldTime':
+                                        30, // Default value, can be modified
+                                    'Notes':
+                                        '' // Default value, can be modified
+                                  });
+                                } else {
+                                  selectedExercises.removeWhere((e) =>
+                                      e['ExerciseID'] ==
+                                      exercise['ExerciseID']);
+                                }
+                              });
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
               ),
               actions: [
                 TextButton(
@@ -231,6 +270,7 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
     );
   }
 
+  // code for reordering exercises
   void _onReorder(int oldIndex, int newIndex) {
     setState(() {
       if (newIndex > oldIndex) {
@@ -245,45 +285,11 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
       }
 
       // Optionally, save the new order here, either locally or by sending to a backend
-      saveExerciseOrder();
+      updateExercisesOnServer();
     });
   }
 
-  void saveExerciseOrder() async {
-    // Debugging: Print the data being sent
-    print('Saving exercise order for routine ${widget.routineId}');
-    final List<Map<String, dynamic>> updatedExercises = _routineExercises
-        .map((exercise) => {
-              'ExerciseID': exercise['ExerciseID'],
-              'Ord': exercise['Ord'],
-            })
-        .toList();
-    print('Data being sent: ${json.encode(updatedExercises)}');
-
-    try {
-      final response = await http.put(
-        Uri.parse('http://localhost:8080/routine/${widget.routineId}/exercise'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(updatedExercises),
-      );
-
-      // Debugging: Print the response status code and body
-      print('Response status: ${response.statusCode}');
-      print('Response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        print('Exercise order saved successfully');
-      } else {
-        // Improved error handling: Log the status code and response body
-        print(
-            'Failed to save exercise order. Status code: ${response.statusCode}, Response: ${response.body}');
-      }
-    } catch (e) {
-      // Handle network errors or exceptions
-      print('An error occurred while saving exercise order: $e');
-    }
-  }
-
+  // code for editing an exercise
   void _showEditExerciseDialog(Map<String, dynamic> exercise) {
     final TextEditingController setsController =
         TextEditingController(text: exercise['Sets'].toString());
@@ -350,6 +356,7 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
     );
   }
 
+  // build the routine info screen
   @override
   Widget build(BuildContext context) {
     return Scaffold(
