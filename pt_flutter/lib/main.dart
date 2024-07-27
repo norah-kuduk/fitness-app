@@ -1,25 +1,42 @@
-// this file creates the home screen for the app
-
 import 'package:flutter/material.dart';
 import 'home_screen.dart'; // Import the HomeScreen widget
 
 void main() {
-  runApp(const MyApp());
+  runApp(MyApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class MyApp extends StatefulWidget {
+  @override
+  _MyAppState createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  ThemeMode _themeMode = ThemeMode.system; // Default to system theme
+
+  void toggleTheme(bool isOn) {
+    setState(() {
+      _themeMode = isOn ? ThemeMode.dark : ThemeMode.light;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'PT MVP',
+      title: 'Flutter Demo',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color.fromARGB(255, 113, 139, 209)),
-        useMaterial3: true,
+        primarySwatch: Colors.blue,
+        brightness: Brightness.light,
       ),
-      home: const HomeScreen(title: 'PT Routine Options'),
+      darkTheme: ThemeData(
+        primarySwatch: Colors.blue,
+        brightness: Brightness.dark,
+      ),
+      themeMode: _themeMode, // Use the current theme mode
+      home: HomeScreen(
+        title: 'Routine List',
+        onToggleTheme:
+            toggleTheme, // Pass the toggle function to the HomeScreen
+      ),
     );
   }
 }

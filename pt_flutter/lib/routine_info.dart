@@ -23,6 +23,8 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
   List<Map<String, dynamic>> _selectedExercises = [];
   List<dynamic> _filteredExercises = [];
   TextEditingController _searchController = TextEditingController();
+  bool _showDeleteOptions = false;
+  bool _showEditOptions = false;
 
   @override
   void initState() {
@@ -78,9 +80,6 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
 
   // add exercises to routine
   Future<void> addExercisesToRoutine() async {
-    // Assuming _existingExercises is a List<int> of existing exercise IDs in the routine
-    // and _selectedExercises is a List<Map<String, dynamic>> where each exercise has an 'id' key
-
     // Filter out exercises that are already in the routine
     List exercisesToAdd = _selectedExercises
         .where((exercise) => !_routineExercises.contains(exercise['id']))
@@ -390,18 +389,21 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit),
-                        onPressed: () {
-                          _showEditExerciseDialog(routineExercise);
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete),
-                        onPressed: () {
-                          deleteRoutineExercise(routineExercise['ExerciseID']);
-                        },
-                      ),
+                      if (_showEditOptions)
+                        IconButton(
+                          icon: const Icon(Icons.edit),
+                          onPressed: () {
+                            _showEditExerciseDialog(routineExercise);
+                          },
+                        ),
+                      if (_showDeleteOptions)
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () {
+                            deleteRoutineExercise(
+                                routineExercise['ExerciseID']);
+                          },
+                        ),
                     ],
                   ),
                 );
@@ -410,9 +412,31 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
           ),
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: ElevatedButton(
-              onPressed: _showExerciseSelectionDialog,
-              child: const Text('Add Exercises'),
+            child: Row(
+              children: [
+                ElevatedButton(
+                  onPressed: _showExerciseSelectionDialog,
+                  child: const Icon(Icons.add),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _showDeleteOptions = !_showDeleteOptions;
+                    });
+                  },
+                  child: Icon(_showDeleteOptions ? Icons.check : Icons.delete),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _showEditOptions = !_showEditOptions;
+                    });
+                  },
+                  child: Icon(_showEditOptions ? Icons.check : Icons.edit),
+                ),
+              ],
             ),
           ),
         ],

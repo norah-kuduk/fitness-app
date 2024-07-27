@@ -3,11 +3,14 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'exercises_list_screen.dart';
 import 'routine_info.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.title});
-
   final String title;
+  final Function(bool) onToggleTheme;
+
+  const HomeScreen({Key? key, required this.title, required this.onToggleTheme})
+      : super(key: key);
 
   @override
   _HomeScreenState createState() => _HomeScreenState();
@@ -81,6 +84,26 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> deleteRoutine(int id) async {
+    final exerciseResponse = await http.get(
+      Uri.parse('http://localhost:8080/routine/$id/exercise'),
+    );
+
+    if (exerciseResponse.statusCode == 200) {
+      final exercises = json.decode(exerciseResponse.body);
+      if (exercises.isNotEmpty) {
+        bool confirmDelete = await _showDeleteConfirmationDialog();
+        if (!confirmDelete) {
+          return;
+        } else {
+          await http.delete(
+            Uri.parse('http://localhost:8080/routine/$id/exercise'),
+          );
+        }
+      }
+    } else {
+      throw Exception('Failed to check exercises for routine');
+    }
+
     final response = await http.delete(
       Uri.parse('http://localhost:8080/routine/$id'),
     );
@@ -90,6 +113,34 @@ class _HomeScreenState extends State<HomeScreen> {
     } else {
       throw Exception('Failed to delete routine');
     }
+  }
+
+  Future<bool> _showDeleteConfirmationDialog() async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: Text('Confirm Delete'),
+              content: Text(
+                  'This routine has exercises. Are you sure you want to delete it?'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(false);
+                  },
+                  child: Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(true);
+                  },
+                  child: Text('Delete'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
   }
 
   void _showRoutineEditDialog(
@@ -163,18 +214,24 @@ class _HomeScreenState extends State<HomeScreen> {
               leading: const Icon(Icons.sports_gymnastics),
               title: const Text('Exercises'),
               onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const ExerciseScreen()),
-                );
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (context) => ExerciseScreen(),
+                ));
               },
             ),
             ListTile(
               leading: const Icon(Icons.settings),
               title: const Text('Settings'),
               onTap: () {
-                Navigator.pop(context);
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => SettingsScreen(
+                      onToggleTheme: widget.onToggleTheme,
+                      isDarkMode:
+                          Theme.of(context).brightness == Brightness.dark,
+                    ),
+                  ),
+                );
               },
             ),
           ],
