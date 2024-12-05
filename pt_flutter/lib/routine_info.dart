@@ -5,6 +5,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'schedule_dialog.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class RoutineInfoScreen extends StatefulWidget {
   final int routineId;
@@ -25,10 +27,15 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
   TextEditingController _searchController = TextEditingController();
   bool _showDeleteOptions = false;
   bool _showEditOptions = false;
+  late FlutterTts _flutterTts; // Declare FlutterTts
+  bool _isPlaying = false; // Track if TTS is playing
+  String _lastSpokenText = ""; // Track last spoken text for resume
 
   @override
   void initState() {
     super.initState(); // initialize
+    _flutterTts = FlutterTts(); // Initialize FlutterTts
+
     fetchExercises(); // fetch exercises
     fetchRoutineExercises(); // fetch routine exercises
     _searchController
@@ -38,6 +45,7 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _flutterTts.stop(); // Stop any ongoing speech when the widget is disposed
     super.dispose();
   }
 
@@ -75,6 +83,57 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
           content: Text('Failed to load exercises'),
         ),
       );
+    }
+  }
+
+  // Read out the exercise details using Text-to-Speech
+  Future<void> _speakRoutineDetails() async {
+    String textToRead = 'Routine: ${widget.routineName}. ';
+    if (_routineExercises.isNotEmpty) {
+      for (var exercise in _routineExercises) {
+        textToRead +=
+            'Exercise: ${_exercises.firstWhere((e) => e['ExerciseID'] == exercise['ExerciseID'])['ExerciseName']}. ';
+        textToRead += '${exercise['Sets']} sets of ${exercise['Reps']} reps.';
+        if (exercise['HoldTime'] != null && exercise['HoldTime'] > 0) {
+          textToRead += 'Hold for ${exercise['HoldTime']} seconds. ';
+        }
+        if (exercise['Notes'] != null && exercise['Notes'].isNotEmpty) {
+          textToRead += 'Notes: ${exercise['Notes']}. ';
+        }
+      }
+    } else {
+      textToRead += 'There are no exercises in this routine.';
+    }
+
+    await _flutterTts.setLanguage("en-US"); // Set language
+    await _flutterTts.setPitch(1.0); // Set pitch (0.5 to 2.0)
+    await _flutterTts.setSpeechRate(0.5); // Set speech rate (0.0 to 1.0)
+
+    setState(() {
+      _isPlaying = true;
+      _lastSpokenText = textToRead; // Track the last spoken text
+    });
+
+    await _flutterTts.speak(textToRead); // Speak the constructed text
+  }
+
+  // Pause the TTS
+  Future<void> _pauseTts() async {
+    if (_isPlaying) {
+      await _flutterTts.stop();
+      setState(() {
+        _isPlaying = false; // Track that TTS is paused
+      });
+    }
+  }
+
+  // Resume the TTS
+  Future<void> _resumeTts() async {
+    if (!_isPlaying && _lastSpokenText.isNotEmpty) {
+      setState(() {
+        _isPlaying = true; // Mark TTS as playing again
+      });
+      await _flutterTts.speak(_lastSpokenText); // Speak the last text again
     }
   }
 
@@ -172,6 +231,16 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
         return exerciseName.contains(query);
       }).toList();
     });
+  }
+
+  // open schedule dialog
+  void _openScheduleDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return ScheduleDialog(routineId: widget.routineId);
+      },
+    );
   }
 
   // code for selecting exercises to add to routine
@@ -435,6 +504,21 @@ class _RoutineInfoScreenState extends State<RoutineInfoScreen> {
                     });
                   },
                   child: Icon(_showEditOptions ? Icons.check : Icons.edit),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () => _openScheduleDialog(context),
+                  child: Icon(Icons.calendar_today),
+                ),
+                ElevatedButton(
+                  onPressed: _speakRoutineDetails,
+                  child: const Icon(Icons.volume_up), // Button for TTS
+                ),
+                ElevatedButton(
+                  onPressed: _isPlaying ? _pauseTts : _resumeTts,
+                  child: Icon(_isPlaying
+                      ? Icons.pause
+                      : Icons.play_arrow), // Play/Pause Button
                 ),
               ],
             ),

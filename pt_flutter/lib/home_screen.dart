@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'exercises_list_screen.dart';
 import 'routine_info.dart';
 import 'settings_screen.dart';
+import 'calendar_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String title;
@@ -232,6 +233,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.calendar_month),
+              title: const Text('Calendar'),
+              onTap: () {
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (context) => CalendarScreen(),
+                ));
               },
             ),
           ],

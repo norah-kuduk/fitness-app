@@ -1,3 +1,4 @@
+-- CREATE TYPE completion_status AS ENUM ('Scheduled', 'Completed', 'Missed');
 
 CREATE TABLE IF NOT EXISTS Routine (
   RoutineID INT PRIMARY KEY,
@@ -18,8 +19,8 @@ CREATE TABLE IF NOT EXISTS Exercise (
 );
 
 CREATE TABLE IF NOT EXISTS RoutineExercise (
-  RoutineID INT,
-  ExerciseID INT,
+  RoutineID INT NOT NULL,
+  ExerciseID INT NOT NULL,
   Sets INT,
   Reps INT,
   HoldTime INT,
@@ -29,3 +30,12 @@ CREATE TABLE IF NOT EXISTS RoutineExercise (
   FOREIGN KEY (ExerciseID) REFERENCES Exercise(ExerciseID)
 );
 
+CREATE TABLE IF NOT EXISTS ScheduledRoutine (
+    RoutineID INT NOT NULL,
+    ScheduledDate DATE NOT NULL,
+    CompletionStatus completion_status DEFAULT 'Scheduled',
+    CompletionDateTime TIMESTAMP NULL,
+    Notes TEXT,
+    FOREIGN KEY (RoutineID) REFERENCES Routine(RoutineID),
+    UNIQUE (RoutineID, ScheduledDate) -- Ensures a routine is scheduled only once per day
+);

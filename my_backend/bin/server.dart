@@ -79,22 +79,6 @@ Future<void> main() async {
   });
 
   //  get a single routine by ID
-  router.get('/routine/<id>', (Request request, String id) async {
-    // Fetch the routine with the given ID from your data source
-    // For example, if you're using a database, you might do something like this:
-    var routine = await dbHelper.connection.execute(
-      'SELECT * FROM Routine WHERE RoutineID = @id',
-      substitutionValues: {
-        'id': id,
-      },
-    );
-    // Convert the routine to a JSON string
-    var routineJson = jsonEncode(routine);
-
-    // Return the routine as a response
-    return Response.ok(routineJson,
-        headers: {'Content-Type': 'application/json'});
-  });
 
   // get all exercises in DB
   router.get('/exercise', (Request request) async {
@@ -270,6 +254,118 @@ Future<void> main() async {
     );
 
     return Response.ok('All exercises deleted from routine', headers: _headers);
+  });
+
+  // fetch routines scheduled for a specific date
+  router.get('/routine/schedule/<date>', (Request request, String date) async {
+    // Parse the date from the URL
+    final parsedDate = DateTime.parse(date);
+
+    // Query the database with proper parameter substitution
+    final result = await dbHelper.connection.query(
+      'SELECT * FROM ScheduledRoutine WHERE ScheduledDate = @ScheduledDate',
+      substitutionValues: {
+        'ScheduledDate': parsedDate
+            .toIso8601String()
+            .split('T')
+            .first, // Convert to valid ISO8601 string for DATE
+      },
+    );
+
+    // Convert the result to a list of maps
+    final scheduledRoutines = result
+        .map((row) => {
+              'RoutineID': row[0],
+              'ScheduledDate':
+                  (row[1] as DateTime).toIso8601String().split('T').first,
+              'CompletionStatus': row[2],
+              'CompletionDateTime': row[3],
+              'Notes': row[4]
+            })
+        .toList();
+
+    if (scheduledRoutines.isEmpty) {
+      return Response.notFound('No routines scheduled for $date');
+    }
+    // Return JSON response
+    return Response.ok(jsonEncode(scheduledRoutines));
+  });
+
+  // Schedule a routine
+  router.post('/routine/schedule', (Request request) async {
+    try {
+      final payload = json.decode(await request.readAsString());
+      final routineId = payload['RoutineID'];
+      final scheduledDate = payload['ScheduledDate'];
+
+      await dbHelper.connection.query(
+        '''INSERT INTO ScheduledRoutine (RoutineID, ScheduledDate)
+             VALUES (@routineId, @scheduledDate)
+             ON CONFLICT (RoutineID, ScheduledDate)
+             DO NOTHING''',
+        substitutionValues: {
+          'routineId': routineId,
+          'scheduledDate': scheduledDate,
+        },
+      );
+
+      return Response.ok('Routine scheduled successfully');
+    } catch (e) {
+      return Response.internalServerError(
+          body: 'Failed to schedule routine: $e');
+    }
+  });
+
+  // Update completion status of a scheduled routine
+  router.put('/routineschedule/update', (Request request) async {
+    try {
+      final payload = json.decode(await request.readAsString());
+      final routineId = payload['RoutineID'];
+      final scheduledDate = payload['ScheduledDate'];
+      final completionStatus = payload['CompletionStatus'];
+      final completionDateTime = payload['CompletionDateTime'];
+      final notes = payload['Notes'];
+
+      await dbHelper.connection.query(
+        '''UPDATE ScheduledRoutine
+             SET CompletionStatus = @completionStatus,
+                 CompletionDateTime = @completionDateTime,
+                 Notes = @notes
+             WHERE RoutineID = @routineId AND ScheduledDate = @scheduledDate''',
+        substitutionValues: {
+          'routineId': routineId,
+          'scheduledDate': scheduledDate,
+          'completionStatus': completionStatus,
+          'completionDateTime': completionDateTime,
+          'notes': notes,
+        },
+      );
+
+      return Response.ok('Routine status updated successfully');
+    } catch (e) {
+      return Response.internalServerError(body: 'Failed to update routine: $e');
+    }
+  });
+
+  // Delete a scheduled routine
+  router.delete('/routineschedule/delete', (Request request) async {
+    try {
+      final payload = json.decode(await request.readAsString());
+      final routineId = payload['RoutineID'];
+      final scheduledDate = payload['ScheduledDate'];
+
+      await dbHelper.connection.query(
+        'DELETE FROM ScheduledRoutine WHERE RoutineID = @routineId AND ScheduledDate = @scheduledDate',
+        substitutionValues: {
+          'routineId': routineId,
+          'scheduledDate': scheduledDate,
+        },
+      );
+
+      return Response.ok('Routine deleted successfully');
+    } catch (e) {
+      return Response.internalServerError(body: 'Failed to delete routine: $e');
+    }
   });
 
   // sets up the middleware pipeline for logging requests and handling CORS,
